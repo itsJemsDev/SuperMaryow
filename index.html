@@ -12,6 +12,20 @@
     <div class="screen-wrap">
       <canvas id="game" width="480" height="270" aria-label="Pixel Arsenal platform game" role="img"></canvas>
       <div class="scanlines" aria-hidden="true"></div>
+      <div id="touch-controls" class="touch-controls" aria-label="Touch game controls">
+        <div class="touch-cluster touch-move">
+          <button class="touch-button" type="button" data-hold="ArrowLeft" aria-label="Move left">◀</button>
+          <button class="touch-button" type="button" data-hold="ArrowRight" aria-label="Move right">▶</button>
+        </div>
+        <div class="touch-cluster touch-actions">
+          <button class="touch-button touch-small" type="button" data-tap="KeyQ" aria-label="Previous weapon">Q</button>
+          <button class="touch-button touch-jump" type="button" data-hold="Space" aria-label="Jump">JUMP</button>
+          <button class="touch-button touch-small" type="button" data-tap="KeyE" aria-label="Next weapon">E</button>
+          <button class="touch-button touch-grenade" type="button" data-tap="KeyK" aria-label="Throw grenade">GREN</button>
+          <button class="touch-button touch-fire" type="button" data-hold="KeyJ" aria-label="Fire weapon">FIRE</button>
+          <button class="touch-button touch-small touch-pause" type="button" data-tap="Escape" aria-label="Pause or resume">II</button>
+        </div>
+      </div>
     </div>
     <footer><span>PIXEL ARSENAL</span><span>AN ORIGINAL ARCADE ADVENTURE</span></footer>
   </main>

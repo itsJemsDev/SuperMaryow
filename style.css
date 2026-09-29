@@ -15,6 +15,7 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
 .scanlines { position: absolute; inset: 0; pointer-events: none; opacity: .12; background: repeating-linear-gradient(to bottom, transparent 0 3px, #020611 4px 5px); mix-blend-mode: multiply; }
 footer { display: flex; justify-content: space-between; padding: clamp(4px, .7vmin, 9px) 3px 0; color: #8fa9d0; font-size: clamp(7px, .8vw, 11px); letter-spacing: .04em; }
 .rotate-hint { display: none; }
+.touch-controls { display: none; }
 
 /* Compact landscape screens keep the game tall and hide decorative cabinet copy. */
 @media (orientation: landscape) and (max-height: 520px) {
@@ -32,4 +33,22 @@ footer { display: flex; justify-content: space-between; padding: clamp(4px, .7vm
   .rotate-hint strong { color: #ffe49a; font-size: clamp(12px, 4vw, 20px); line-height: 1.6; }
   .rotate-hint > span:last-child { max-width: 32ch; color: #a9c7dc; font-size: clamp(10px, 3vw, 14px); line-height: 1.8; }
   .rotate-icon { color: #70ecd5; font-family: Arial, sans-serif; font-size: clamp(48px, 15vw, 76px); line-height: 1; }
+}
+
+/* Touch devices get a viewport-filling landscape playfield and on-screen controls. */
+@media (pointer: coarse) and (orientation: landscape) and (max-width: 1600px) {
+  body { min-height: 100vh; min-height: 100dvh; }
+  .cabinet { position: fixed; inset: 0; display: grid; place-items: center; width: 100%; height: 100vh; height: 100dvh; padding: 0; }
+  .screen-wrap { width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)), 177.7778vh); width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)), 177.7778dvh); border: 0; box-shadow: none; }
+  .cabinet footer { display: none; }
+  .touch-controls { position: absolute; z-index: 4; inset: 0; display: block; pointer-events: none; touch-action: none; }
+  .touch-cluster { position: absolute; bottom: max(12px, env(safe-area-inset-bottom)); display: flex; align-items: end; gap: clamp(7px, 1.5vw, 14px); pointer-events: auto; }
+  .touch-move { left: max(12px, env(safe-area-inset-left)); }
+  .touch-actions { right: max(12px, env(safe-area-inset-right)); display: grid; grid-template-columns: repeat(3, clamp(46px, 10dvh, 66px)); gap: clamp(5px, 1.1vw, 10px); }
+  .touch-button { width: clamp(46px, 10dvh, 66px); height: clamp(46px, 10dvh, 66px); padding: 4px; border: 2px solid #9ed9dfb8; border-radius: 14px; background: #162747b8; box-shadow: 0 3px 0 #0b1425a8, inset 0 1px #ffffff30; color: #f4f5df; font: 700 clamp(10px, 2.4dvh, 14px)/1 'Courier New', monospace; text-shadow: 1px 1px #17213a; -webkit-tap-highlight-color: transparent; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .touch-button:active, .touch-button.active { transform: translateY(2px); border-color: #fff0ae; background: #397c89d9; color: #fff5c8; box-shadow: 0 1px 0 #0b1425a8, inset 0 1px #ffffff45; }
+  .touch-jump { background: #39795ebf; border-color: #b5efb8c9; }
+  .touch-fire { background: #8b4059c9; border-color: #ffb3a0d6; }
+  .touch-grenade { background: #695638c9; border-color: #f1d78dc9; }
+  .touch-small { font-size: clamp(12px, 3dvh, 17px); }
 }

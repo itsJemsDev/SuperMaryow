@@ -16,7 +16,7 @@ Open `index.html` in a modern desktop browser. For a local server, run `python -
 - **M**: mute or unmute sound
 - **Enter**: confirm a menu choice / continue after a level
 
-Use the mouse on title-screen choices. The top-right **SND/MUTE** button controls effects; its lower note button controls music. Audio begins after your first input.
+On touch devices, use the landscape on-screen controller; tapping **Play** requests fullscreen where the browser supports it. Use the top-right **FS** button to toggle fullscreen. The **SND/MUTE** button controls effects; its lower note controls music. Audio begins after your first input.
 
 ## Files
 

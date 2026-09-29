@@ -10,12 +10,17 @@
     enemyBoltSpeed: 93, invulnerability: 1.35
   };
   const canvas = document.querySelector('#game');
+  const touchControls = document.querySelector('#touch-controls');
+  const touchMode = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
   const ctx = canvas.getContext('2d', { alpha: false });
   ctx.imageSmoothingEnabled = false;
   const state = { screen: 'title', returnScreen: 'playing', menu: 0, selectedWorld: 0, elapsed: 0,
     levelIndex: 0, score: 0, best: 0, unlocked: 0, sound: true, music: true,
-    cameraX: 0, shake: 0, banner: '', bannerTime: 0, transitionTime: 0, muteRect: { x: 438, y: 8, w: 32, h: 23 } };
+    cameraX: 0, shake: 0, banner: '', bannerTime: 0, transitionTime: 0,
+    muteRect: { x: 438, y: 8, w: 32, h: 23 }, fullscreenRect: { x: 405, y: 8, w: 27, h: 23 } };
   const pressed = new Set();
+  const touchPressed = new Set();
+  const touchPointers = new Map();
   let player, level, enemies = [], bullets = [], enemyBullets = [], grenades = [], effects = [], pickups = [], coins = [], crates = [], platforms = [], hazards = [], checkpoints = [], movingPlatforms = [], boss = null;
   let accumulator = 0, previousTime = 0, audio = null, musicTimer = 0, musicBeat = 0;
 
@@ -61,6 +66,11 @@
   const rand = (a, b) => a + Math.random() * (b - a);
   const save = (key, val) => { try { localStorage.setItem(key, String(val)); } catch (_) {} };
   const load = (key, fallback) => { try { const n = Number(localStorage.getItem(key)); return Number.isFinite(n) ? n : fallback; } catch (_) { return fallback; } };
+  const isDown = code => pressed.has(code) || touchPressed.has(code);
+  function clearHeldInputs() {
+    pressed.clear(); touchPressed.clear(); touchPointers.clear();
+    if (touchControls) touchControls.querySelectorAll('.active').forEach(button => button.classList.remove('active'));
+  }
   state.best = load('pixelArsenalBest', 0);
   state.unlocked = clamp(load('pixelArsenalUnlocked', 0), 0, 2);
 
@@ -109,8 +119,8 @@
     player = {x:startX,y:216,w:14,h:20,vx:0,vy:0,face:1,grounded:true,coyote:TUNE.coyote,jumpBuffer:0,jumpHold:0,health:5,maxHealth:5,lives:3,weapon:0,owned:[true,false,false],ammo:[Infinity,0,0],grenades:2,invuln:0,fireCooldown:0,anim:0,checkpointX:startX,checkpointId:-1,dead:false,deathTimer:0,carriedPlatform:null};
     state.cameraX = 0; state.shake = 0; state.banner = level.name; state.bannerTime = 2.2; state.transitionTime = 0;
   }
-  function startGame(index = 0) { if(player)updateBest(); initAudio(); state.score = 0; buildLevel(index); state.screen = 'playing'; pressed.clear(); }
-  function resetToTitle() { state.screen = 'title'; state.menu = 0; pressed.clear(); }
+  function startGame(index = 0) { if(player)updateBest(); initAudio(); state.score = 0; buildLevel(index); state.screen = 'playing'; clearHeldInputs(); }
+  function resetToTitle() { state.screen = 'title'; state.menu = 0; clearHeldInputs(); }
 
   function gameKey(code) { return ['ArrowLeft','ArrowRight','Space','KeyA','KeyD','KeyJ','KeyK','KeyQ','KeyE','Escape','Enter','KeyM','ArrowUp','ArrowDown'].includes(code); }
   window.addEventListener('keydown', ev => {
@@ -120,8 +130,8 @@
     if (['ArrowLeft','ArrowRight','KeyA','KeyD','Space','KeyJ','KeyK'].includes(ev.code)) pressed.add(ev.code);
     if (ev.code === 'KeyM') { setSound(!state.sound); return; }
     if (ev.code === 'Escape') {
-      if (state.screen === 'playing') { pressed.clear(); state.screen = 'paused'; }
-      else if (state.screen === 'paused') { state.screen = 'playing'; pressed.clear(); }
+      if (state.screen === 'playing') { clearHeldInputs(); state.screen = 'paused'; }
+      else if (state.screen === 'paused') { state.screen = 'playing'; clearHeldInputs(); }
       else if (state.screen === 'controls') state.screen = state.returnScreen;
       else if (state.screen === 'title') state.screen = 'title';
       return;
@@ -130,10 +140,10 @@
       if (ev.code === 'ArrowUp' || ev.code === 'ArrowDown') state.menu = (state.menu + (ev.code === 'ArrowDown' ? 1 : 2)) % 3;
       if (ev.code === 'ArrowLeft' && state.menu === 0) state.selectedWorld = Math.max(0,state.selectedWorld-1);
       if (ev.code === 'ArrowRight' && state.menu === 0) state.selectedWorld = Math.min(state.unlocked,state.selectedWorld+1);
-      if (ev.code === 'Enter' || ev.code === 'Space') activateMenu();
+      if (ev.code === 'Enter' || ev.code === 'Space') { if(state.menu===0)requestGameFullscreen(); activateMenu(); }
     } else if (state.screen === 'controls' && (ev.code === 'Enter' || ev.code === 'Space')) state.screen = state.returnScreen;
     else if (state.screen === 'paused') {
-      if (ev.code === 'Enter' || ev.code === 'Space') { state.screen = 'playing'; pressed.clear(); }
+      if (ev.code === 'Enter' || ev.code === 'Space') { state.screen = 'playing'; clearHeldInputs(); }
       if (ev.code === 'KeyR') startGame(state.levelIndex);
       if (ev.code === 'KeyC') { state.returnScreen = 'paused'; state.screen = 'controls'; }
     } else if (state.screen === 'playing') {
@@ -145,13 +155,68 @@
     else if ((state.screen === 'gameover' || state.screen === 'victory') && (ev.code === 'Enter' || ev.code === 'Space')) startGame(0);
   });
   window.addEventListener('keyup', ev => { pressed.delete(ev.code); });
-  window.addEventListener('blur', () => { pressed.clear(); if (state.screen === 'playing') state.screen = 'paused'; });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { pressed.clear(); if (state.screen === 'playing') state.screen = 'paused'; } });
+  window.addEventListener('blur', () => { clearHeldInputs(); if (state.screen === 'playing') state.screen = 'paused'; });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { clearHeldInputs(); if (state.screen === 'playing') state.screen = 'paused'; } });
+  document.addEventListener('fullscreenchange', clearHeldInputs);
 
   function activateMenu() {
     if (state.menu === 0) startGame(state.selectedWorld);
     else if (state.menu === 1) { state.returnScreen = 'title'; state.screen = 'controls'; }
     else if (state.menu === 2) { setSound(!state.sound); }
+  }
+  function requestGameFullscreen() {
+    if (!touchMode || document.fullscreenElement) return;
+    const root = document.documentElement;
+    if (!root || typeof root.requestFullscreen !== 'function') return;
+    try {
+      const request = root.requestFullscreen({ navigationUI: 'hide' });
+      if (request && typeof request.then === 'function') request.then(() => {
+        const orientation = window.screen && window.screen.orientation;
+        if (orientation && typeof orientation.lock === 'function') orientation.lock('landscape').catch(() => {});
+      }).catch(() => {});
+    } catch (_) { /* CSS still fills the landscape viewport where native fullscreen is unavailable. */ }
+  }
+  function toggleGameFullscreen() {
+    if (document.fullscreenElement && typeof document.exitFullscreen === 'function') {
+      const exit = document.exitFullscreen(); if (exit && typeof exit.catch === 'function') exit.catch(() => {});
+    } else requestGameFullscreen();
+  }
+  function releaseTouchPointer(ev, button) {
+    const held = touchPointers.get(ev.pointerId);
+    if (!held) return;
+    touchPointers.delete(ev.pointerId);
+    if (![...touchPointers.values()].some(entry => entry.code === held.code)) touchPressed.delete(held.code);
+    if (![...touchPointers.values()].some(entry => entry.button === button)) button.classList.remove('active');
+  }
+  if (touchControls) {
+    touchControls.addEventListener('click', ev => ev.stopPropagation());
+    touchControls.addEventListener('contextmenu', ev => ev.preventDefault());
+    touchControls.querySelectorAll('button').forEach(button => {
+      button.addEventListener('pointerdown', ev => {
+        ev.preventDefault(); ev.stopPropagation();
+        initAudio(); button.classList.add('active');
+        const holdCode = button.dataset.hold;
+        const tapCode = button.dataset.tap;
+        if (tapCode === 'Escape') {
+          if (state.screen === 'playing') { clearHeldInputs(); state.screen = 'paused'; }
+          else if (state.screen === 'paused') { state.screen = 'playing'; clearHeldInputs(); }
+          window.setTimeout(() => button.classList.remove('active'), 140);
+          return;
+        }
+        if (state.screen !== 'playing' || !player || player.dead) return;
+        if (holdCode) {
+          touchPointers.set(ev.pointerId, { code: holdCode, button }); touchPressed.add(holdCode);
+          try { button.setPointerCapture(ev.pointerId); } catch (_) {}
+          if (holdCode === 'KeyJ') fireWeapon();
+          return;
+        }
+        if (tapCode === 'KeyQ') cycleWeapon(-1);
+        else if (tapCode === 'KeyE') cycleWeapon(1);
+        else if (tapCode === 'KeyK') throwGrenade();
+        window.setTimeout(() => button.classList.remove('active'), 140);
+      });
+      for (const eventName of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(eventName, ev => releaseTouchPointer(ev, button));
+    });
   }
   function cycleWeapon(dir) {
     if (!player) return;
@@ -190,13 +255,13 @@
     updatePlatforms(dt);
     player.fireCooldown=Math.max(0,player.fireCooldown-dt); player.invuln=Math.max(0,player.invuln-dt); player.anim=Math.max(0,player.anim-dt);
     player.jumpBuffer=Math.max(0,player.jumpBuffer-dt);
-    const left=pressed.has('ArrowLeft')||pressed.has('KeyA'), right=pressed.has('ArrowRight')||pressed.has('KeyD');
+    const left=isDown('ArrowLeft')||isDown('KeyA'), right=isDown('ArrowRight')||isDown('KeyD');
     if (left!==right) {
       const dir=right?1:-1; player.face=dir;
       player.vx += dir*(player.grounded?TUNE.groundAccel:TUNE.airAccel)*dt;
     } else player.vx += clamp(-player.vx,-TUNE.friction*dt,TUNE.friction*dt);
     player.vx=clamp(player.vx,-TUNE.runMax,TUNE.runMax);
-    const jumpHeld=pressed.has('Space');
+    const jumpHeld=isDown('Space');
     if (jumpHeld && !player.jumpWasHeld) player.jumpBuffer=TUNE.jumpBuffer;
     player.jumpWasHeld=jumpHeld;
     if (player.grounded) player.coyote=TUNE.coyote; else player.coyote-=dt;
@@ -213,10 +278,10 @@
     if (player.y>H+36) hurtPlayer(true);
     if (Math.abs(player.vx)>15) player.anim+=dt*12;
     updateEnemies(dt); updateBoss(dt); updateBullets(dt); updateEnemyBullets(dt); updateGrenades(dt); updateEffects(dt); updatePickups(dt);
-    if (pressed.has('KeyJ')) fireWeapon();
+    if (isDown('KeyJ')) fireWeapon();
     if (player.invuln<=0) for (const h of hazards) if (solid(player,{x:h.x,y:h.y,w:h.w,h:h.h})) { hurtPlayer(); break; }
     const goal={x:level.exit,y:185,w:28,h:52};
-    if (!player.dead && solid(player,goal) && (!boss || !boss.alive)) { state.screen='levelclear'; state.transitionTime=1.35; pressed.clear(); }
+    if (!player.dead && solid(player,goal) && (!boss || !boss.alive)) { state.screen='levelclear'; state.transitionTime=1.35; clearHeldInputs(); }
     const target=clamp(player.x-178,0,level.width-W); state.cameraX += (target-state.cameraX)*Math.min(1,dt*5.8);
   }
   function allSolids() { return platforms.concat(movingPlatforms); }
@@ -391,7 +456,7 @@
     else if(state.screen==='levelclear')drawLevelClear();
     else if(state.screen==='gameover')drawEnd(false);
     else if(state.screen==='victory')drawEnd(true);
-    drawMuteButton();
+    drawMuteButton();drawFullscreenButton();
   }
   function drawBackground() {
     const colors=level?level.sky:['#70d7ea','#d5f4ce'];const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,colors[0]);g.addColorStop(1,colors[1]);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
@@ -465,24 +530,25 @@
     pixelText('COIN',98,9,5,'#ffe68c');pixelText(String(coins.filter(c=>!c.alive).length).padStart(2,'0'),98,19,7,'#fff5bb');
     pixelText('GEAR',151,9,5,'#a9c5e7');pixelText(weaponNames[player.weapon],151,19,6,weaponColors[player.weapon]);
     const ammo=player.weapon===0?'∞':String(player.ammo[player.weapon]).padStart(2,'0');pixelText('AMMO '+ammo,246,12,6,'#d9e8ff');pixelText('G '+player.grenades,338,12,6,'#aaf0b7');
-    pixelText('♥ '+player.lives,399,12,6,'#ffa6ae');pixelText('SCORE '+state.score,9,38,5,'#d9eddd');pixelText(level.name, W/2,38,5,'#e0e9bd','center');
+    pixelText('♥ '+player.lives,touchMode?372:399,12,6,'#ffa6ae');pixelText('SCORE '+state.score,9,38,5,'#d9eddd');pixelText(level.name, W/2,38,5,'#e0e9bd','center');
   }
 
   function drawTitle(){overlay('#12213bce');ctx.fillStyle='#f4d170';ctx.fillRect(91,45,8,7);ctx.fillRect(375,45,8,7);pixelText('PIXEL',W/2,63,24,'#fff4c1','center');pixelText('ARSENAL',W/2,96,24,'#70ecd5','center');pixelText('A TINY ADVENTURE WITH BIG FIREPOWER',W/2,120,6,'#d8e8cf','center');
     const labels=['PLAY','CONTROLS',`SOUND: ${state.sound?'ON':'OFF'}`];labels.forEach((t,i)=>{const y=155+i*23;ctx.fillStyle=state.menu===i?'#24466a':'#172844';ctx.fillRect(163,y-8,154,18);if(state.menu===i){ctx.fillStyle='#ffce69';ctx.fillRect(154,y-4,5,8);ctx.fillRect(321,y-4,5,8);}pixelText(t,W/2,y,8,state.menu===i?'#fff2ad':'#a9c7dc','center');});
     pixelText(`WORLD ${state.selectedWorld+1} / ${state.unlocked+1}   ◀  ▶`,W/2,229,6,'#b7d9cb','center');pixelText(`BEST ${state.best}`,W/2,246,6,'#90aac5','center');pixelText('ENTER / SPACE   •   WASD OR ARROWS TO MOVE',W/2,260,5,'#8098b0','center');
   }
-  function drawControls(){overlay('#10192de8');panel(47,31,386,211,'#1b2c4c','#7598ad');pixelText('FIELD MANUAL',W/2,51,11,'#ffe8a1','center');const lines=[['MOVE','A / D   OR   ← / →'],['JUMP','SPACE  •  HOLD FOR HEIGHT'],['FIRE / GRENADE','J  /  K'],['SWITCH WEAPON','Q / E'],['PAUSE / MUTE','ESC  /  M'],['FIELD TIPS','A SHORT FLASH MEANS DANGER'],['','CHECKPOINT FLAGS SAVE YOUR RUN']];lines.forEach((l,i)=>{const y=77+i*20;pixelText(l[0],72,y,6,'#89ead6');pixelText(l[1],192,y,6,'#dce8ef');});pixelText('ENTER OR ESC TO RETURN',W/2,222,6,'#ffcf76','center');}
+  function drawControls(){overlay('#10192de8');panel(47,31,386,211,'#1b2c4c','#7598ad');pixelText('FIELD MANUAL',W/2,51,11,'#ffe8a1','center');const lines=[['MOVE','A / D   OR   ← / →'],['JUMP','SPACE  •  HOLD FOR HEIGHT'],['FIRE / GRENADE','J  /  K'],['SWITCH WEAPON','Q / E'],['PAUSE / MUTE','ESC  /  M'],['FIELD TIPS','A SHORT FLASH MEANS DANGER'],['','CHECKPOINT FLAGS SAVE YOUR RUN'],['TOUCH','LANDSCAPE CONTROLLER • II PAUSES']];lines.forEach((l,i)=>{const y=75+i*18;pixelText(l[0],72,y,6,'#89ead6');pixelText(l[1],192,y,6,'#dce8ef');});pixelText('ENTER OR ESC TO RETURN',W/2,222,6,'#ffcf76','center');}
   function drawPause(){overlay('#10192dbd');panel(113,67,254,137,'#1c2c4b','#83a6c1');pixelText('PAUSED',W/2,94,14,'#fff0b0','center');pixelText('ENTER / SPACE  RESUME',W/2,124,6,'#b9f1dc','center');pixelText('R  RESTART WORLD',W/2,145,6,'#d4e5ec','center');pixelText('C  CONTROLS',W/2,163,6,'#d4e5ec','center');pixelText('ESC  RESUME',W/2,186,5,'#99b1c9','center');}
   function drawLevelClear(){overlay('#10192d99');panel(92,74,296,117,'#1b3551','#7be4ca');pixelText('WORLD CLEAR!',W/2,103,13,'#fff0a2','center');pixelText(level.name,W/2,128,6,'#d6ede1','center');pixelText('ENTER TO CONTINUE',W/2,160,7,'#8ff0d2','center');}
   function drawEnd(win){overlay('#10192de8');panel(65,54,350,163,win?'#1c3651':'#302343',win?'#9cf0cc':'#f1798e');pixelText(win?'YOU SAVED THE DAY!':'RUN OVER',W/2,91,win?11:14,win?'#caffce':'#ff9aa5','center');pixelText(win?'THE OUTPOSTS ARE FREE.':'THE ROBOTS STILL HAVE THE MAP.',W/2,119,5,'#e1e8dc','center');pixelText(`SCORE ${state.score}    BEST ${state.best}`,W/2,148,7,'#ffe8a4','center');pixelText('ENTER / SPACE TO PLAY AGAIN',W/2,184,6,'#96efd2','center');}
   function drawMuteButton(){const r=state.muteRect;ctx.fillStyle='#182642d9';ctx.fillRect(r.x,r.y,r.w,r.h);ctx.strokeStyle='#7e9bb9';ctx.strokeRect(r.x+.5,r.y+.5,r.w-1,r.h-1);pixelText(state.sound?'SND':'MUTE',r.x+r.w/2,r.y+9,5,state.sound?'#a9f4df':'#ff9b9b','center');pixelText(state.music?'♪':'×',r.x+r.w/2,r.y+18,5,'#f3d98c','center');}
+  function drawFullscreenButton(){if(!touchMode)return;const r=state.fullscreenRect;ctx.fillStyle='#182642d9';ctx.fillRect(r.x,r.y,r.w,r.h);ctx.strokeStyle='#7e9bb9';ctx.strokeRect(r.x+.5,r.y+.5,r.w-1,r.h-1);pixelText(document.fullscreenElement?'EXIT':'FS',r.x+r.w/2,r.y+12,5,'#d8edff','center');}
   function overlay(color){ctx.fillStyle=color;ctx.fillRect(0,0,W,H);}
   function panel(x,y,w,h,fill,stroke){ctx.fillStyle='#10162b';ctx.fillRect(x-4,y-4,w+8,h+8);ctx.fillStyle=stroke;ctx.fillRect(x-2,y-2,w+4,h+4);ctx.fillStyle=fill;ctx.fillRect(x,y,w,h);ctx.fillStyle='#ffffff17';ctx.fillRect(x+4,y+4,w-8,2);}
   function pixelText(text,x,y,size,color,align='left'){ctx.save();ctx.font=`${size}px 'Press Start 2P', monospace`;ctx.textAlign=align;ctx.textBaseline='middle';ctx.lineJoin='miter';ctx.fillStyle='#1b2940';ctx.fillText(text,Math.round(x)+1,Math.round(y)+1);ctx.fillStyle=color;ctx.fillText(text,Math.round(x),Math.round(y));ctx.restore();}
   function canvasPoint(ev){const r=canvas.getBoundingClientRect();return{x:(ev.clientX-r.left)*W/r.width,y:(ev.clientY-r.top)*H/r.height};}
-  canvas.addEventListener('click',ev=>{initAudio();const p=canvasPoint(ev),r=state.muteRect;if(p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h){if(p.y<r.y+14)setSound(!state.sound);else toggleMusic();return;}if(state.screen==='title'){
-      if(p.y>145&&p.y<178){state.menu=0;activateMenu();}else if(p.y>=178&&p.y<201){state.menu=1;activateMenu();}else if(p.y>=201&&p.y<226){state.menu=2;activateMenu();}else if(p.y>220){if(p.x<W/2)state.selectedWorld=Math.max(0,state.selectedWorld-1);else state.selectedWorld=Math.min(state.unlocked,state.selectedWorld+1);}
+  canvas.addEventListener('click',ev=>{initAudio();const p=canvasPoint(ev),r=state.fullscreenRect;if(touchMode&&p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h){toggleGameFullscreen();return;}const soundRect=state.muteRect;if(p.x>=soundRect.x&&p.x<=soundRect.x+soundRect.w&&p.y>=soundRect.y&&p.y<=soundRect.y+soundRect.h){if(p.y<soundRect.y+14)setSound(!state.sound);else toggleMusic();return;}if(state.screen==='title'){
+      if(p.y>145&&p.y<178){requestGameFullscreen();state.menu=0;activateMenu();}else if(p.y>=178&&p.y<201){state.menu=1;activateMenu();}else if(p.y>=201&&p.y<226){state.menu=2;activateMenu();}else if(p.y>220){if(p.x<W/2)state.selectedWorld=Math.max(0,state.selectedWorld-1);else state.selectedWorld=Math.min(state.unlocked,state.selectedWorld+1);}
     }else if(state.screen==='levelclear')finishLevel();else if(state.screen==='paused')state.screen='playing';else if(state.screen==='controls')state.screen=state.returnScreen;else if(state.screen==='gameover'||state.screen==='victory')startGame(0);
   });
 
