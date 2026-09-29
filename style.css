@@ -1,0 +1,35 @@
+:root { color-scheme: dark; font-family: 'Courier New', monospace; }
+* { box-sizing: border-box; }
+html, body { width: 100%; min-height: 100%; margin: 0; }
+body {
+  width: 100%; min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 38%, #233965 0%, #111b35 50%, #080d1c 100%);
+  color: #d7f4ef;
+}
+@supports (padding: max(0px)) {
+  body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+}
+.cabinet { width: min(98vw, 160vh); width: min(98vw, 160dvh); padding: clamp(4px, 1vmin, 16px); }
+.screen-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border: clamp(2px, .35vw, 4px) solid #537198; background: #111b35; box-shadow: 0 0 0 3px #11172a, 0 22px 70px #030713b8, 0 0 36px #53e7d633; }
+canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+.scanlines { position: absolute; inset: 0; pointer-events: none; opacity: .12; background: repeating-linear-gradient(to bottom, transparent 0 3px, #020611 4px 5px); mix-blend-mode: multiply; }
+footer { display: flex; justify-content: space-between; padding: clamp(4px, .7vmin, 9px) 3px 0; color: #8fa9d0; font-size: clamp(7px, .8vw, 11px); letter-spacing: .04em; }
+.rotate-hint { display: none; }
+
+/* Compact landscape screens keep the game tall and hide decorative cabinet copy. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .cabinet { width: min(98vw, 164vh); width: min(98vw, 164dvh); padding: 4px; }
+  .screen-wrap { border-width: 2px; }
+  footer { padding-top: 3px; font-size: 7px; }
+  footer span:last-child { display: none; }
+}
+
+/* Platforming is authored for a wide viewport; prompt portrait users to rotate. */
+@media (orientation: portrait) and (max-width: 1100px) {
+  .cabinet { width: min(94vw, 82vh); width: min(94vw, 82dvh); }
+  footer span:last-child { display: none; }
+  .rotate-hint { position: fixed; z-index: 5; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 28px; text-align: center; background: #0b1326f5; color: #d7f4ef; }
+  .rotate-hint strong { color: #ffe49a; font-size: clamp(12px, 4vw, 20px); line-height: 1.6; }
+  .rotate-hint > span:last-child { max-width: 32ch; color: #a9c7dc; font-size: clamp(10px, 3vw, 14px); line-height: 1.8; }
+  .rotate-icon { color: #70ecd5; font-family: Arial, sans-serif; font-size: clamp(48px, 15vw, 76px); line-height: 1; }
+}

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101b35">
+  <title>Pixel Arsenal</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="cabinet" aria-label="Pixel Arsenal game">
+    <div class="screen-wrap">
+      <canvas id="game" width="480" height="270" aria-label="Pixel Arsenal platform game" role="img"></canvas>
+      <div class="scanlines" aria-hidden="true"></div>
+    </div>
+    <footer><span>PIXEL ARSENAL</span><span>AN ORIGINAL ARCADE ADVENTURE</span></footer>
+  </main>
+  <div class="rotate-hint" role="status" aria-live="polite">
+    <span class="rotate-icon" aria-hidden="true">↻</span>
+    <strong>ROTATE YOUR DEVICE</strong>
+    <span>Pixel Arsenal is designed for landscape play.</span>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>
